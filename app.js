@@ -6,8 +6,19 @@ const common = require('./controller/admincontroller')
 
 const app = express()
 
+
+
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '10mb' }))
+
+app.use((req, res, next) => {
+    const send = res.json.bind(res)
+    res.json = (body) => {
+        console.log(req.method, req.originalUrl, res.statusCode, body && body.message)
+        return send(body)
+    }
+    next()
+})
 app.use('/uploads', express.static('uploads'))      // เปิดให้ดูไฟล์ที่อัปโหลด
 
 // เส้นทางที่ทุก role ที่ login แล้วดูได้

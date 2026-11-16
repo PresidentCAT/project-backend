@@ -1,6 +1,6 @@
 -- สร้างฐานข้อมูล pntc  (utf8mb4 เพื่อรองรับภาษาไทย)
-CREATE DATABASE IF NOT EXISTS pntc2 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE pntc2;
+CREATE DATABASE IF NOT EXISTS pntc CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE pntc;
 
 -- 1) ผู้ใช้ทุกบทบาท: admin = ฝ่ายบุคลากร, evaluatee = ผู้รับการประเมิน, committee = กรรมการ
 CREATE TABLE users (

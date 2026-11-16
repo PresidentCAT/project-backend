@@ -7,6 +7,8 @@ exports.verifyToken = (req, res, next) => {
     try {
         req.user = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET)  // {id, username, role}
         next()
+    if (req.user.status === 0 && req.originalUrl !== '/api/auth/change-password')
+        return res.status(403).json({ status: 'error', message: 'must change password first' })
     } catch (error) {
         return res.status(401).json({ status: 'error', message: 'token invalid or expired' })
     }

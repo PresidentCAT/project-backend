@@ -9,14 +9,14 @@ const serverError = (res, error) => {
     res.status(500).json({ status: 'error', message: 'something wrong in server' })
 }
 
-// POST /api/admin/users   body: username, password, fullname, email, role(committee|admin)
+// POST /api/admin/users   body: username, password, fullname, email, role(evaluatee|committee|admin)
 exports.createUser = async (req, res) => {
     const { username, password, fullname, email, role } = req.body
     try {
         if (!username || !password || !fullname || !email || !role)
             return res.status(400).json({ status: 'error', message: 'please fill all field' })
-        if (!['committee', 'admin'].includes(role))
-            return res.status(400).json({ status: 'error', message: 'role must be committee or admin' })
+        if (!['evaluatee', 'committee', 'admin'].includes(role))
+            return res.status(400).json({ status: 'error', message: 'role must be evaluatee, committee or admin' })
         if (!emailOk(email))
             return res.status(400).json({ status: 'error', message: 'email format is wrong' })
         if (await authmodel.checkusername(username))
@@ -173,5 +173,76 @@ exports.stats = async (req, res) => {
     try {
         const data = await model.stats()
         res.json({ status: 'success', message: 'ok', data })
+    } catch (error) { serverError(res, error) }
+}
+
+// PUT /api/admin/users/:id   body: fullname, email
+exports.updateUser = async (req, res) => {
+    const { fullname, email } = req.body
+    try {
+        if (!fullname || !email) return res.status(400).json({ status: 'error', message: 'please fill all field' })
+        if (!emailOk(email)) return res.status(400).json({ status: 'error', message: 'email format is wrong' })
+        const result = await model.updateUser(req.params.id, fullname, email)
+        if (result.affectedRows === 0) return res.status(404).json({ status: 'error', message: 'user not found' })
+        res.json({ status: 'success', message: 'user updated', data: null })
+    } catch (error) { serverError(res, error) }
+}
+
+// DELETE /api/admin/users/:id
+exports.deleteUser = async (req, res) => {
+    try {
+        if (Number(req.params.id) === req.user.id)
+            return res.status(400).json({ status: 'error', message: 'cannot delete yourself' })
+        const result = await model.deleteUser(req.params.id)
+        if (result.affectedRows === 0) return res.status(404).json({ status: 'error', message: 'user not found' })
+        res.json({ status: 'success', message: 'user deleted', data: null })
+    } catch (error) { serverError(res, error) }
+}
+
+// PUT /api/admin/topics/:id   body: name
+exports.updateTopic = async (req, res) => {
+    const { name } = req.body
+    try {
+        if (!name) return res.status(400).json({ status: 'error', message: 'please fill all field' })
+        const result = await model.updateTopic(req.params.id, name)
+        if (result.affectedRows === 0) return res.status(404).json({ status: 'error', message: 'topic not found' })
+        res.json({ status: 'success', message: 'topic updated', data: null })
+    } catch (error) { serverError(res, error) }
+}
+
+// DELETE /api/admin/topics/:id
+exports.deleteTopic = async (req, res) => {
+    try {
+        const result = await model.deleteTopic(req.params.id)
+        if (result.affectedRows === 0) return res.status(404).json({ status: 'error', message: 'topic not found' })
+        res.json({ status: 'success', message: 'topic deleted', data: null })
+    } catch (error) { serverError(res, error) }
+}
+
+// GET /api/admin/periods   -> ช่วงเวลาทั้งหมด
+exports.getPeriods = async (req, res) => {
+    try {
+        const data = await model.getPeriods()
+        res.json({ status: 'success', message: 'ok', data })
+    } catch (error) { serverError(res, error) }
+}
+
+// GET /api/admin/backup   -> ดาวน์โหลดข้อมูลทั้งระบบเป็นไฟล์ JSON
+exports.backup = async (req, res) => {
+    try {
+        const data = await model.backupAll()
+        res.setHeader('Content-Disposition', 'attachment; filename=backup.json')
+        res.json({ status: 'success', message: 'backup success', data })
+    } catch (error) { serverError(res, error) }
+}
+
+// POST /api/admin/restore   body: ข้อมูลจากไฟล์ backup (ส่วน data) -> ลบของเดิมแล้วใส่ตาม backup
+exports.restore = async (req, res) => {
+    try {
+        const body = req.body.data || req.body          // รับทั้งไฟล์ backup ทั้งก้อน หรือเฉพาะส่วน data
+        const ok = model.TABLES.every(t => Array.isArray(body[t]))
+        if (!ok) return res.status(400).json({ status: 'error', message: 'backup data is invalid' })
+        await model.restoreAll(body)
+        res.json({ status: 'success', message: 'restore success', data: null })
     } catch (error) { serverError(res, error) }
 }

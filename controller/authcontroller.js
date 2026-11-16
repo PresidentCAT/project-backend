@@ -19,7 +19,7 @@ exports.register = async (req, res) => {
         if (check) return res.status(400).json({ status: 'error', message: 'this username already use' })
 
         const hash = await bcrypt.hash(password, 10)
-        const result = await model.register(username, hash, email, fullname, 'evaluatee')
+        const result = await model.register(username, hash, email, fullname, 'evaluatee', 1)
         return res.status(201).json({ status: 'success', message: 'register success', data: { id: result.insertId } })
     } catch (error) {
         console.log(error)
@@ -42,14 +42,49 @@ exports.login = async (req, res) => {
 
         // ลงนาม (sign) token ด้วย JWT_SECRET
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role },
+            { id: user.id, username: user.username, role: user.role, status: user.status },
             process.env.JWT_SECRET,
             { expiresIn: '1d' }
         )
+        console.log(user);
         return res.json({
             status: 'success', message: 'login success',
-            data: { token, user: { id: user.id, fullname: user.fullname, role: user.role } }
+            data: { token, user: { id: user.id, fullname: user.fullname, role: user.role, status: user.status } }
         })
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ status: 'error', message: 'something wrong in server' })
+    }
+}
+
+
+// PUT /api/auth/change-password   body: old_password, new_password
+exports.changePassword = async (req, res) => {
+    const { old_password, new_password } = req.body
+    console.log(req.body);
+    try {
+        if (!old_password || !new_password)
+            return res.status(400).json({ status: 'error', message: 'please fill all field' })
+        if (new_password.length < 6)
+            return res.status(400).json({ status: 'error', message: 'password must be at least 6 characters' })
+        if (old_password === new_password)
+            return res.status(400).json({ status: 'error', message: 'new password must be different' })
+
+        const user = await model.findById(req.user.id)
+        const match = await bcrypt.compare(old_password, user.password)
+        if (!match) return res.status(400).json({ status: 'error', message: 'old password is wrong' })
+
+        const hash = await bcrypt.hash(new_password, 10)
+        await model.changePassword(req.user.id, hash)
+
+        // ออก token ใหม่ที่ status = 1 (token เดิมยังเป็น 0 อยู่)
+        const token = jwt.sign(
+            { id: req.user.id, username: req.user.username, role: req.user.role, status: 1 },
+            process.env.JWT_SECRET,
+            { expiresIn: '1d' }
+        )
+        console.log(user);
+        res.json({ status: 'success', message: 'password changed', data: { token } })
     } catch (error) {
         console.log(error)
         res.status(500).json({ status: 'error', message: 'something wrong in server' })
